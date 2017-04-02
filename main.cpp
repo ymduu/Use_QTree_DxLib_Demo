@@ -2,6 +2,12 @@
 #include "libQTree.h"
 #include <memory>
 #include <vector>
+#include <stdlib.h>
+#include <time.h>
+#include <iostream>
+
+#define DIVLEVEL 3.0
+#define CIRARRSIZE 5000
 
 class Circle {
 public:
@@ -26,60 +32,54 @@ public:
 		id = a_id;
 		color = a_color;
 	}
+
 };
 
+void QTreeDemo() {
+	Circle cs[CIRARRSIZE];
+	//OFTはshared_ptrで持つ
+	std::shared_ptr<IKD::OBJECT_FOR_TREE<Circle>> spOFTAry[CIRARRSIZE];
 
-// プログラムは WinMain から始まります
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
-{
-	SetGraphMode(800, 600, 32);
-	ChangeWindowMode(TRUE);
-	if (DxLib_Init() == -1)		// ＤＸライブラリ初期化処理
-	{
-		return -1;			// エラーが起きたら直ちに終了
-	}
-	Circle cs[500];
-	IKD::OBJECT_FOR_TREE<Circle>* spOFTAry[500];
-	int c = 0;
+	int circleNum = 0;
+	srand((unsigned)time(NULL));
 	for (int i = 1; i < 10; i++) {
 		for (int j = 1; j < 15; j++) {
-			cs[c].InitCircle(j * 50, i * 50, 15, GetColor(255, 0, 255), TRUE);
-			cs[c].Draw();
-			
+			cs[circleNum].InitCircle(j * 50 + rand() % 50, i * 50 + rand() % 50, 15, GetColor(255, 0, 255), circleNum);
+			cs[circleNum].Draw();
+
 			// OFTに登録
-			IKD::OBJECT_FOR_TREE<Circle> *p = new IKD::OBJECT_FOR_TREE<Circle>(c);
-			p->m_pObject = &cs[c];	// 登録
-			spOFTAry[c] = p;
-			c++;
+			spOFTAry[circleNum] = std::make_shared<IKD::OBJECT_FOR_TREE<Circle>>(circleNum);	//新しいOFTをshared_ptrで作成
+			spOFTAry[circleNum]->m_pObject = &cs[circleNum];	// 対応する円を登録
+			circleNum++;
 		}
 	}
 	IKD::CLiner4TreeManager<Circle> LTree;
-	if (!LTree.Init(8, 0.0, 0.0, 600.0, 800.0))
+	if (!LTree.Init(DIVLEVEL, 0.0, 0.0, 800.0, 600.0))
 	{
 		MessageBox(NULL, _T("線形4分木空間の初期化に失敗しました。"), NULL, NULL);
-		return 0;
+		return;
 	}
-	
+
 	//描画先を裏画面に設定
 	SetDrawScreen(DX_SCREEN_BACK);
 	char key[256];
-	IKD::CollisionList<Circle>* ColVect;	
+	IKD::CollisionList<Circle>* ColVect;
 	while (ScreenFlip() == 0 && ProcessMessage() == 0 && ClearDrawScreen() == 0 && GetHitKeyStateAll(key) == 0) {
-		//再登録
-		static bool change = true;
-		for (int cn = 0; cn < c; cn++)
-		{
+		clsDx();
+		//再登録(移動を反映させるため)
+
+		for (int cn = 0; cn < circleNum; cn++){
 			int i = cn;
-			if (change == true) {
-				i = c - cn - 1;
-			}
+
 			Circle *pTmp = spOFTAry[i]->m_pObject;
 			spOFTAry[i]->Remove();		// 一度リストから外れる
-										// 再登録
-			LTree.Regist(pTmp->x - pTmp->r, pTmp->y - pTmp->r, pTmp->x + pTmp->r, pTmp->y + pTmp->r, spOFTAry[i]);
+			pTmp->color = GetColor(255, 0, 255);
+			// 再登録
+			LTree.Regist(pTmp->x - pTmp->r, pTmp->y - pTmp->r, pTmp->x + pTmp->r, pTmp->y + pTmp->r, spOFTAry[i].get());
 		}
-		change = !change;
+
 		int ColNum = LTree.GetAllCollisionList(&ColVect);
+		printfDx("possibleHitNum=%d", ColNum / 2);
 		// 衝突判定
 		DWORD cir;
 		ColNum /= 2;	// 2で割るのはペアになっているので
@@ -90,7 +90,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			float y = (pRoot[cir * 2]->y - pRoot[cir * 2 + 1]->y);
 			if (r2 >= x*x + y*y)
 			{
-				// ぶつかった物同士のテクスチャをオレンジに変更
+				// ぶつかった物同士の色をオレンジに変更
 				pRoot[cir * 2]->color = GetColor(255, 165, 0);
 				pRoot[cir * 2 + 1]->color = GetColor(255, 165, 0);
 
@@ -98,14 +98,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 
 
-		for (int i = 0; i < c; i++) {
+		for (int i = 0; i < circleNum; i++) {
 			cs[i].Draw();
 		}
-		
+		//あとは適当に円を動かす+分割グリッド表示デモ
+		double xdiv, ydiv;
+		xdiv = 800 / pow(2, DIVLEVEL);
+		ydiv = 600 / pow(2, DIVLEVEL);
+
+		for (int i = 0; i < pow(2, DIVLEVEL); i++) {
+			DrawLine(xdiv*i, 0, xdiv*i, 600, GetColor(255, 255, 255), 1);
+		}
+		for (int i = 0; i < pow(2, DIVLEVEL); i++) {
+			DrawLine(0, ydiv*i, 800, ydiv*i, GetColor(255, 255, 255), 1);
+		}
+
 		int move = 4;
 		if (key[KEY_INPUT_LEFT] == 1) {
 			cs[0].x -= move;
-			cs[0].color = GetColor(255, 0, 0);
+			//cs[0].color = GetColor(255, 0, 0);
 		}
 		if (key[KEY_INPUT_RIGHT] == 1) {
 			cs[0].x += move;
@@ -122,7 +133,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 
 	}
+}
 
+
+// プログラムは WinMain から始まります
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{
+	SetGraphMode(800, 600, 32);
+	ChangeWindowMode(TRUE);
+	if (DxLib_Init() == -1)		// ＤＸライブラリ初期化処理
+	{
+		return -1;			// エラーが起きたら直ちに終了
+	}
+	QTreeDemo();
 
 	DxLib_End();				// ＤＸライブラリ使用の終了処理
 
