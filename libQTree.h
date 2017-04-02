@@ -155,7 +155,8 @@ namespace IKD
 		float m_fUnit_H;		// 最小レベル空間の高単位
 		DWORD m_dwCellNum;		// 空間の数
 		unsigned int m_uiLevel;			// 最下位レベル
-		CollisionList< T > m_ColList;	// 衝突リスト
+
+		std::vector<std::pair<T*, T*>> m_ColList;	//上の自作vectorは衝突可能性のある組をループで回すとき等やや不便なので素直に(？)vectorを使う（有意に遅くなるなどの弊害があれば戻す）
 
 	public:
 		// コンストラクタ
@@ -229,23 +230,21 @@ namespace IKD
 			return false;	// 登録失敗
 		}
 
-		// 衝突判定リストを作成する
-		DWORD GetAllCollisionList(CollisionList<T>** colList)
+		// 衝突判定リストを作成する.
+		std::vector<std::pair<T*,T*>> GetAllCollisionList()
 		{
 			// リスト（配列）は必ず初期化します
-			m_ColList.resetPos();
-
+			m_ColList.clear();
 			// ルート空間の存在をチェック
 			if (ppCellAry[0] == NULL)
-				return 0;	// 空間が存在していない
+				return m_ColList;	// 空間が存在していない
 
 							// ルート空間を処理
 			std::list<T*> ColStac;
 			GetCollisionList(0, ColStac);
 
-			*colList = &m_ColList;
+			return m_ColList;
 
-			return (DWORD)m_ColList.getSize();
 		}
 
 
@@ -262,12 +261,12 @@ namespace IKD
 			{
 				OBJECT_FOR_TREE<T>* spOFT2 = spOFT1->m_spNext;
 				while (spOFT2 != 0) {
-					m_ColList.wright(spOFT1->m_pObject, spOFT2->m_pObject);
+					m_ColList.push_back(std::make_pair(spOFT1->m_pObject, spOFT2->m_pObject));
 					spOFT2 = spOFT2->m_spNext;
 				}
 				// ② 衝突スタックとの衝突リスト作成
 				for (it = ColStac.begin(); it != ColStac.end(); it++) {
-					m_ColList.wright(spOFT1->m_pObject, *it);
+					m_ColList.push_back(std::make_pair(spOFT1->m_pObject, *it));
 				}
 				spOFT1 = spOFT1->m_spNext;
 			}

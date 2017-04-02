@@ -63,7 +63,8 @@ void QTreeDemo() {
 	//•`‰ææ‚ğ— ‰æ–Ê‚Éİ’è
 	SetDrawScreen(DX_SCREEN_BACK);
 	char key[256];
-	IKD::CollisionList<Circle>* ColVect;
+	//IKD::CollisionList<Circle>* ColVect;
+	std::vector<std::pair<Circle*, Circle*>> ColVect;
 	while (ScreenFlip() == 0 && ProcessMessage() == 0 && ClearDrawScreen() == 0 && GetHitKeyStateAll(key) == 0) {
 		clsDx();
 		//Ä“o˜^(ˆÚ“®‚ğ”½‰f‚³‚¹‚é‚½‚ß)
@@ -78,22 +79,18 @@ void QTreeDemo() {
 			LTree.Regist(pTmp->x - pTmp->r, pTmp->y - pTmp->r, pTmp->x + pTmp->r, pTmp->y + pTmp->r, spOFTAry[i].get());
 		}
 
-		int ColNum = LTree.GetAllCollisionList(&ColVect);
-		printfDx("possibleHitNum=%d", ColNum / 2);
+		ColVect = LTree.GetAllCollisionList();
+		printfDx("possibleHitNum=%d", ColVect.size());
 		// Õ“Ë”»’è
 		DWORD cir;
-		ColNum /= 2;	// 2‚ÅŠ„‚é‚Ì‚ÍƒyƒA‚É‚È‚Á‚Ä‚¢‚é‚Ì‚Å
-		Circle** pRoot = ColVect->getRootPtr();
-		for (cir = 0; cir<ColNum; cir++) {
-			float r2 = (pRoot[cir * 2]->r + pRoot[cir * 2 + 1]->r)*(pRoot[cir * 2]->r + pRoot[cir * 2 + 1]->r);
-			float x = (pRoot[cir * 2]->x - pRoot[cir * 2 + 1]->x);
-			float y = (pRoot[cir * 2]->y - pRoot[cir * 2 + 1]->y);
-			if (r2 >= x*x + y*y)
-			{
-				// ‚Ô‚Â‚©‚Á‚½•¨“¯m‚ÌF‚ğƒIƒŒƒ“ƒW‚É•ÏX
-				pRoot[cir * 2]->color = GetColor(255, 165, 0);
-				pRoot[cir * 2 + 1]->color = GetColor(255, 165, 0);
 
+		for (std::pair<Circle*, Circle*> p : ColVect) {
+			double r2 = (p.first->r + p.second->r)*(p.first->r + p.second->r);
+			double x = p.first->x - p.second->x;
+			double y = p.first->y - p.second->y;
+			if (r2 >= x*x + y*y) {
+				p.first->color = GetColor(255, 165, 0);
+				p.second->color = GetColor(255, 165, 0);
 			}
 		}
 
